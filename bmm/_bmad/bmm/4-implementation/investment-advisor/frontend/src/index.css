@@ -1,0 +1,130 @@
+/* Investment Advisor — Design System */
+
+:root {
+  --color-bg: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-sidebar: #0F172A;
+  --color-amber: #F59E0B;
+  --color-amber-light: #FEF3C7;
+  --color-navy: #0F172A;
+  --color-text: #1E293B;
+  --color-text-muted: #64748B;
+  --color-border: rgba(148, 163, 184, 0.2);
+  --color-gain: #16A34A;
+  --color-gain-bg: #DCFCE7;
+  --color-loss: #DC2626;
+  --color-loss-bg: #FEE2E2;
+  --color-info: #3B82F6;
+  --radius-card: 12px;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Financial value utilities */
+.gain {
+  color: var(--color-gain) !important;
+  font-weight: 600;
+}
+
+.loss {
+  color: var(--color-loss) !important;
+  font-weight: 600;
+}
+
+.neutral {
+  color: var(--color-text-muted);
+}
+
+/* Monospace numbers */
+.mono {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Gain/loss badges */
+.badge-gain {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--color-gain-bg);
+  color: var(--color-gain);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.badge-loss {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--color-loss-bg);
+  color: var(--color-loss);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+/* Page section divider */
+.section-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 24px 0;
+}
+
+/* Chart container baseline */
+.chart-container {
+  width: 100%;
+  min-height: 280px;
+}
+
+/* Recharts custom tooltip */
+.recharts-tooltip-wrapper .custom-tooltip {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow-card);
+  font-size: 0.8125rem;
+  color: var(--color-text);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
