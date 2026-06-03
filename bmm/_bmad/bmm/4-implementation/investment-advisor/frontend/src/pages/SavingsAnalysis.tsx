@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import {
   Box, Card, CardContent, Typography, Grid, TextField, Button, Divider,
-  InputAdornment, Chip,
+  InputAdornment, Chip, Alert, CircularProgress,
 } from '@mui/material'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
 import CalculateIcon from '@mui/icons-material/Calculate'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import SecurityIcon from '@mui/icons-material/Security'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
+import SaveIcon from '@mui/icons-material/Save'
+import api from '../services/api'
 
 // Mirrors SavingsAnalysisService logic (backend/src/services/analysis/SavingsAnalysisService.ts)
 function calculateSavingsRate(monthlyIncome: number, monthlySavings: number): number {
@@ -52,13 +56,79 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 export default function SavingsAnalysis() {
-  const [form, setForm] = useState({ currentSavings: '500000', monthlyIncome: '150000', monthlySavings: '29000' })
+  const [form, setForm] = useState({ currentSavings: '', monthlyIncome: '', monthlySavings: '' })
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [csvError, setCsvError] = useState<string | null>(null)
+  const [csvSuccess, setCsvSuccess] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Pre-fill from saved data
+  useEffect(() => {
+    api.getSavings().then(s => {
+      setForm({
+        currentSavings: String(s.currentSavings),
+        monthlyIncome: String(s.monthlyIncome),
+        monthlySavings: String(s.monthlySavings),
+      })
+    }).catch(() => {})
+  }, [])
 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [field]: e.target.value })
 
-  const handleAnalyze = () => {
+  function applyRows(rows: Record<string, string>[]) {
+    const normalised = rows.map(r => {
+      const key = (k: string) => Object.keys(r).find(c => c.trim().toLowerCase() === k)
+      return { date: r[key('date') || ''] ?? '', amount: r[key('amount') || ''] ?? '' }
+    })
+    const valid = normalised.filter(r => r.date && !isNaN(parseFloat(r.amount)))
+    if (valid.length === 0) {
+      setCsvError('File must have "date" and "amount" columns with at least one valid row.')
+      return
+    }
+    const sorted = valid.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    const latestAmount = Math.round(parseFloat(sorted[0].amount))
+    setForm(f => ({ ...f, currentSavings: String(latestAmount) }))
+    setCsvSuccess(`Loaded ${valid.length} rows — current savings set to ₹${latestAmount.toLocaleString('en-IN')} (latest entry: ${sorted[0].date})`)
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCsvError(null)
+    setCsvSuccess(null)
+    const ext = file.name.split('.').pop()?.toLowerCase()
+
+    if (ext === 'csv') {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => applyRows(results.data as Record<string, string>[]),
+        error: (err) => setCsvError(`Parse error: ${err.message}`),
+      })
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        try {
+          const wb = XLSX.read(ev.target?.result, { type: 'array', cellDates: true })
+          const ws = wb.Sheets[wb.SheetNames[0]]
+          // sheet_to_json with header:1 gives raw arrays; with defVal:'' fills blanks
+          const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' })
+          applyRows(rows)
+        } catch (err) {
+          setCsvError(`Excel parse error: ${String(err)}`)
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      setCsvError('Unsupported file type. Please upload a .csv, .xlsx, or .xls file.')
+    }
+    e.target.value = ''
+  }
+
+  const handleAnalyze = async () => {
     const cs = parseFloat(form.currentSavings) || 0
     const mi = parseFloat(form.monthlyIncome) || 0
     const ms = parseFloat(form.monthlySavings) || 0
@@ -71,6 +141,15 @@ export default function SavingsAnalysis() {
       annualSavings: ms * 12,
       projections: projectSavingsGrowth(cs, ms * 12, 10),
     })
+    // Save to backend
+    setSaving(true)
+    setSaveSuccess(false)
+    try {
+      await api.createSavings({ currentSavings: cs, monthlyIncome: mi, monthlySavings: ms } as any)
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch {}
+    setSaving(false)
   }
 
   const savingsRateColor = (rate: number) => rate >= 20 ? '#16A34A' : rate >= 10 ? '#F59E0B' : '#DC2626'
@@ -123,18 +202,27 @@ export default function SavingsAnalysis() {
                   variant="contained"
                   size="large"
                   fullWidth
-                  startIcon={<CalculateIcon />}
+                  startIcon={saving ? <CircularProgress size={16} sx={{ color: 'white' }} /> : saveSuccess ? <SaveIcon /> : <CalculateIcon />}
                   onClick={handleAnalyze}
-                  sx={{ bgcolor: '#0F172A', color: 'white', '&:hover': { bgcolor: '#1E293B' }, mt: 0.5 }}
+                  disabled={saving}
+                  sx={{ bgcolor: saveSuccess ? '#16A34A' : '#0F172A', color: 'white', '&:hover': { bgcolor: saveSuccess ? '#15803D' : '#1E293B' }, mt: 0.5, transition: 'background-color 0.3s' }}
                 >
-                  Analyse My Savings
+                  {saving ? 'Saving…' : saveSuccess ? 'Saved!' : 'Analyse & Save'}
                 </Button>
               </Box>
 
               <Divider sx={{ my: 2.5, borderColor: 'rgba(148,163,184,0.12)' }} />
 
               {/* CSV Upload */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+              />
               <Box
+                onClick={() => fileInputRef.current?.click()}
                 sx={{
                   border: '2px dashed rgba(148,163,184,0.3)',
                   borderRadius: '10px',
@@ -147,12 +235,14 @@ export default function SavingsAnalysis() {
               >
                 <CloudUploadIcon sx={{ fontSize: 32, color: '#94A3B8', mb: 1 }} />
                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#475569', mb: 0.25 }}>
-                  Import via CSV
+                  Import via CSV or Excel
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                  Columns: date, amount
+                  .csv / .xlsx / .xls — columns: date, amount
                 </Typography>
               </Box>
+              {csvError && <Alert severity="error" sx={{ mt: 1, fontSize: '0.8rem' }}>{csvError}</Alert>}
+              {csvSuccess && <Alert severity="success" sx={{ mt: 1, fontSize: '0.8rem' }}>{csvSuccess}</Alert>}
             </CardContent>
           </Card>
         </Grid>

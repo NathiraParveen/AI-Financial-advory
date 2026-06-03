@@ -1,4 +1,8 @@
-import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, AppBar, Toolbar, Typography, Divider } from '@mui/material'
+import { useState } from 'react'
+import {
+  Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
+  AppBar, Toolbar, Typography, Fab,
+} from '@mui/material'
 import { Link, useLocation } from 'react-router-dom'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import AssessmentIcon from '@mui/icons-material/Assessment'
@@ -7,8 +11,11 @@ import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates'
 import TargetIcon from '@mui/icons-material/GpsFixed'
 import TaxIcon from '@mui/icons-material/ReceiptLong'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import SmartToyIcon from '@mui/icons-material/SmartToy'
+import AiChatPanel from './AiChatPanel'
 
 const drawerWidth = 248
+const chatDrawerWidth = 400
 
 interface LayoutProps {
   children: React.ReactNode
@@ -25,6 +32,7 @@ const menuItems = [
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const [chatOpen, setChatOpen] = useState(false)
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -142,8 +150,6 @@ export default function Layout({ children }: LayoutProps) {
           })}
         </List>
 
-        <Divider sx={{ borderColor: 'rgba(148,163,184,0.1)', mx: 2, mt: 2, mb: 2 }} />
-
         {/* Bottom branding area */}
         <Box sx={{ px: 3, mt: 'auto', pb: 3 }}>
           <Typography variant="caption" sx={{ color: 'rgba(148,163,184,0.4)', display: 'block' }}>
@@ -168,6 +174,39 @@ export default function Layout({ children }: LayoutProps) {
       >
         <Box sx={{ p: 3 }}>{children}</Box>
       </Box>
+
+      {/* AI Chat floating button */}
+      <Fab
+        onClick={() => setChatOpen(true)}
+        sx={{
+          position: 'fixed',
+          bottom: 28,
+          right: 28,
+          bgcolor: '#F59E0B',
+          color: '#0F172A',
+          boxShadow: '0 4px 20px rgba(245,158,11,0.4)',
+          '&:hover': { bgcolor: '#D97706' },
+          zIndex: (theme) => theme.zIndex.drawer,
+        }}
+      >
+        <SmartToyIcon />
+      </Fab>
+
+      {/* AI Chat drawer */}
+      <Drawer
+        anchor="right"
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: chatDrawerWidth,
+            bgcolor: 'background.paper',
+            pt: '60px',
+          },
+        }}
+      >
+        <AiChatPanel />
+      </Drawer>
     </Box>
   )
 }

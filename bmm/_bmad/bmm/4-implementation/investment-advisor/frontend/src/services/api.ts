@@ -18,6 +18,7 @@ class APIClient {
   private token: string | null = null
 
   constructor(baseURL: string = '/api/v1') {
+    this.token = localStorage.getItem('authToken')
     this.api = axios.create({
       baseURL,
       headers: {
@@ -71,9 +72,10 @@ class APIClient {
     return data.user
   }
 
-  async logout() {
+  logout() {
     this.token = null
     localStorage.removeItem('authToken')
+    window.location.href = '/login'
   }
 
   // ============ Savings ============
@@ -85,6 +87,19 @@ class APIClient {
   async createSavings(savingsData: Partial<Savings>): Promise<Savings> {
     const { data } = await this.api.post('/savings', savingsData)
     return data
+  }
+
+  async addSavingsGoal(goal: { name: string; targetAmount: number; targetDate: string; priority: number; riskTolerance: string }): Promise<any> {
+    const { data } = await this.api.post('/savings/goals', goal)
+    return data
+  }
+
+  async deleteSavingsGoal(goalId: string): Promise<void> {
+    await this.api.delete(`/savings/goals/${goalId}`)
+  }
+
+  async deleteHolding(portfolioId: string, holdingId: string): Promise<void> {
+    await this.api.delete(`/portfolio/${portfolioId}/holdings/${holdingId}`)
   }
 
   async uploadSavingsCSV(file: File): Promise<Savings> {
@@ -130,17 +145,17 @@ class APIClient {
 
   // ============ Analysis ============
   async getRiskAssessment(portfolioId: string): Promise<RiskAssessment> {
-    const { data } = await this.api.get(`/analysis/risk/${portfolioId}`)
+    const { data } = await this.api.get(`/portfolio/${portfolioId}/risk`)
     return data
   }
 
   async getTaxOptimization(portfolioId: string): Promise<TaxOptimizationResult> {
-    const { data } = await this.api.get(`/analysis/tax-optimization/${portfolioId}`)
+    const { data } = await this.api.get(`/portfolio/${portfolioId}/tax`)
     return data
   }
 
   async getRebalancingAnalysis(portfolioId: string) {
-    const { data } = await this.api.get(`/analysis/rebalancing/${portfolioId}`)
+    const { data } = await this.api.get(`/portfolio/${portfolioId}/rebalancing`)
     return data
   }
 
@@ -157,6 +172,62 @@ class APIClient {
 
   async dismissRecommendation(recId: string): Promise<Recommendation> {
     const { data } = await this.api.post(`/recommendations/${recId}/dismiss`)
+    return data
+  }
+
+  // ============ AI ============
+  async aiChat(message: string, conversationId?: string): Promise<{ conversationId: string; message: string; tokens: { input: number; output: number } }> {
+    const { data } = await this.api.post('/ai/chat', { message, conversationId })
+    return data
+  }
+
+  async listAiConversations(): Promise<any[]> {
+    const { data } = await this.api.get('/ai/chat')
+    return data
+  }
+
+  async getAiConversation(conversationId: string): Promise<any[]> {
+    const { data } = await this.api.get(`/ai/chat/${conversationId}`)
+    return data
+  }
+
+  async deleteAiConversation(conversationId: string): Promise<void> {
+    await this.api.delete(`/ai/chat/${conversationId}`)
+  }
+
+  async getAiForecast(portfolioId: string, period: '1m' | '3m' | '12m' = '12m'): Promise<any> {
+    const { data } = await this.api.get('/ai/forecast', { params: { portfolioId, period } })
+    return data
+  }
+
+  async getAiAnomalies(): Promise<any[]> {
+    const { data } = await this.api.get('/ai/anomalies')
+    return data
+  }
+
+  async acknowledgeAiAnomaly(alertId: string): Promise<void> {
+    await this.api.post(`/ai/anomalies/${alertId}/acknowledge`)
+  }
+
+  async triggerAiAnalysis(portfolioId: string): Promise<void> {
+    await this.api.post('/ai/analyze', { portfolioId })
+  }
+
+  async getAiInsights(type?: string): Promise<any[]> {
+    const { data } = await this.api.get('/ai/insights', { params: type ? { type } : {} })
+    return data
+  }
+
+  async generateAiInsights(): Promise<void> {
+    await this.api.post('/ai/insights/generate')
+  }
+
+  async markInsightRead(insightId: string): Promise<void> {
+    await this.api.put(`/ai/insights/${insightId}/read`)
+  }
+
+  async getAiMetrics(): Promise<any> {
+    const { data } = await this.api.get('/ai/metrics')
     return data
   }
 }

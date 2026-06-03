@@ -1,0 +1,290 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  savings       Savings[]
+  portfolios    Portfolio[]
+  recommendations Recommendation[]
+  
+  // AI Features
+  chatConversations ChatConversation[]
+  portfolioForecasts PortfolioForecast[]
+  anomalyAlerts AnomalyAlert[]
+  personalizedInsights PersonalizedInsight[]
+  aiUsageLogs AIUsageLog[]
+  
+  @@map("users")
+}
+
+model Savings {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  currentSavings  Float     // Current liquid savings
+  monthlyIncome   Float     // Monthly income
+  monthlySavings  Float     // Monthly savings capacity
+  
+  savingStartDate DateTime  @default(now())
+  goals           SavingsGoal[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("savings")
+}
+
+model SavingsGoal {
+  id          String    @id @default(cuid())
+  savingsId   String
+  savings     Savings   @relation(fields: [savingsId], references: [id], onDelete: Cascade)
+  
+  name        String    // e.g., "Retirement", "Home Purchase"
+  targetAmount Float
+  targetDate  DateTime
+  priority    Int       // 1 = highest priority
+  riskTolerance String  // low, medium, high
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("savings_goals")
+}
+
+model Portfolio {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String    // e.g., "Retirement Portfolio"
+  totalValue      Float
+  
+  holdings        Holding[]
+  history         PortfolioHistory[]
+  rebalancingAlerts RebalancingAlert[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("portfolios")
+}
+
+model Holding {
+  id              String    @id @default(cuid())
+  portfolioId     String
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  ticker          String    // Stock/ETF ticker
+  assetClass      String    // stocks, bonds, cash, real_estate, etc.
+  quantity        Float
+  costBasis       Float     // Total cost basis for tax calculation
+  currentValue    Float
+  purchaseDate    DateTime
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("holdings")
+}
+
+model PortfolioHistory {
+  id              String    @id @default(cuid())
+  portfolioId     String
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  totalValue      Float
+  timestamp       DateTime  @default(now())
+  
+  @@map("portfolio_history")
+}
+
+model Recommendation {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type            String    // investment, rebalance, tax_harvest, etc.
+  title           String
+  description     String
+  rationale       String    // Why this recommendation
+  
+  estimatedImpact Float     // Projected impact in dollars
+  priority        String    // high, medium, low
+  action          String    // What to do
+  
+  status          String    @default("active") // active, implemented, dismissed
+  dismissedAt     DateTime?
+  implementedAt   DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("recommendations")
+}
+
+model RebalancingAlert {
+  id              String    @id @default(cuid())
+  portfolioId     String
+  portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  targetAllocation String  // JSON: {"stocks": 70, "bonds": 30}
+  currentAllocation String // JSON: {"stocks": 75, "bonds": 25}
+  
+  threshold       Float     // Percentage threshold for alert (e.g., 5)
+  triggered       DateTime  @default(now())
+  acknowledged    DateTime?
+  
+  @@map("rebalancing_alerts")
+}
+
+model TaxOptimization {
+  id              String    @id @default(cuid())
+  portfolioId     String
+  
+  taxLossHarvestingOpportunities String // JSON array
+  estimatedTaxSavings Float
+  
+  createdAt       DateTime  @default(now())
+  
+  @@map("tax_optimizations")
+}
+
+// ===== AI FEATURES MODELS (NEW) =====
+
+// Chat & Conversation Storage
+model ChatConversation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String?
+  messages    ChatMessage[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@map("chat_conversations")
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  role           String   // "user" | "assistant"
+  content        String  
+  tokens         Int?     // Token count for cost tracking
+  createdAt      DateTime @default(now())
+  
+  @@index([conversationId])
+  @@map("chat_messages")
+}
+
+// Predictions & Forecasts
+model PortfolioForecast {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  portfolioId    String   // Reference to portfolio (optional)
+  period         String   // "1m" | "3m" | "12m"
+  predictions    String   // JSON: {date, price, confidence}[]
+  metrics        String   // JSON: {expectedReturn, volatility, sharpe}
+  modelVersion   String   @default("v1.0")
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime // Cache invalidation
+  
+  @@index([userId])
+  @@index([portfolioId])
+  @@map("portfolio_forecasts")
+}
+
+// Anomalies & Alerts
+model AnomalyAlert {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  anomalyType    String   // "concentration" | "correlation" | "volatility" | "liquidity"
+  severity       String   // "low" | "medium" | "high"
+  description    String  
+  recommendation String? 
+  acknowledged   Boolean  @default(false)
+  acknowledgedAt DateTime?
+  createdAt      DateTime @default(now())
+  
+  @@index([userId])
+  @@index([severity])
+  @@map("anomaly_alerts")
+}
+
+// Personalized Insights
+model PersonalizedInsight {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type           String   // "performance" | "tax" | "goal" | "risk" | "behavioral"
+  title          String
+  content        String  
+  actionItems    String?  // JSON array of action items
+  confidence     Float    // 0-1
+  actionable     Boolean
+  read           Boolean  @default(false)
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@map("personalized_insights")
+}
+
+// Market Sentiment Data
+model MarketSentiment {
+  id             String   @id @default(cuid())
+  ticker         String  
+  sentiment      Float    // -1 to 1
+  volume         Int      // Mention count
+  source         String   // "news" | "social" | "combined"
+  timestamp      DateTime @default(now())
+  
+  @@index([ticker])
+  @@index([timestamp])
+  @@map("market_sentiments")
+}
+
+// AI Usage & Cost Tracking
+model AIUsageLog {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  featureType    String   // "chat" | "forecast" | "anomaly" | "insight"
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  costUSD        Float    @default(0)
+  latencyMs      Int      @default(0)
+  status         String   // "success" | "error"
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("ai_usage_logs")
+}
